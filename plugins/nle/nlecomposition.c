@@ -2541,6 +2541,10 @@ _relink_single_node (NleComposition * comp, GNode * node,
   GST_DEBUG_OBJECT (comp, "newobj:%s",
       GST_ELEMENT_NAME ((GstElement *) newobj));
 
+  if (newparent) {
+    newobj->operational_rate *= newparent->operational_rate;
+  }
+
   srcpad = NLE_OBJECT_SRC (newobj);
 
   gst_bin_add (GST_BIN (comp->priv->current_bin), GST_ELEMENT (newobj));

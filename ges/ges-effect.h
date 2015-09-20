@@ -68,6 +68,9 @@ struct _GESEffectClass
 {
   /*< private > */
   GESBaseEffectClass parent_class;
+
+  GList *rate_properties;
+
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING];
 
@@ -77,6 +80,12 @@ GType ges_effect_get_type (void);
 
 GESEffect*
 ges_effect_new (const gchar * bin_description);
+
+void
+ges_effect_class_register_rate_property (GESEffectClass *klass, const gchar *property_name);
+
+void
+ges_effect_class_register_rate_property_by_element (GESEffectClass *klass, const gchar *element, const gchar *property_name);
 
 G_END_DECLS
 #endif /* _GES_EFFECT */

@@ -51,7 +51,7 @@ nle_object_translate_incoming_seek (NleObject * object, GstEvent * event)
   gint64 cur;
   guint64 ncur;
   gint64 stop;
-  guint64 nstop;
+  guint64 nstop, rateless_stop;
   guint32 seqnum = GST_EVENT_SEQNUM (event);
 
   gst_event_parse_seek (event, &rate, &format, &flags,
@@ -109,7 +109,15 @@ nle_object_translate_incoming_seek (NleObject * object, GstEvent * event)
         "event already has GST_SEEK_FLAG_ACCURATE : %d", flags);
   }
 
-
+  /* correct for a different rate */
+  rateless_stop = nstop;
+  nstop = ncur + (nstop - ncur) * object->operational_rate;
+  if (nstop != rateless_stop) {
+    GST_DEBUG_OBJECT (object,
+        "because of operational rate %lf, changed stop from %" GST_TIME_FORMAT
+        " to %" GST_TIME_FORMAT, object->operational_rate,
+        GST_TIME_ARGS (rateless_stop), GST_TIME_ARGS (nstop));
+  }
 
   GST_DEBUG_OBJECT (object,
       "SENDING SEEK rate:%f, format:TIME, flags:%d, curtype:%d, stoptype:SET, %"

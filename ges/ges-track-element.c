@@ -34,6 +34,7 @@
 #include "ges-track-element.h"
 #include "ges-clip.h"
 #include "ges-meta-container.h"
+#include "ges-effect.h"
 
 G_DEFINE_ABSTRACT_TYPE (GESTrackElement, ges_track_element,
     GES_TYPE_TIMELINE_ELEMENT);
@@ -712,6 +713,41 @@ ensure_nle_object (GESTrackElement * object)
       g_object_set (object->priv->nleobject,
           "caps", ges_track_get_caps (object->priv->track), NULL);
 
+    float operational_rate = 1.0f;
+    GESEffectClass *effect_class =
+        GES_EFFECT_CLASS (g_type_class_ref (GES_TYPE_EFFECT));
+
+    for (GList * l = effect_class->rate_properties; l != NULL; l = l->next) {
+      GObject *child;
+      GParamSpec *pspec;
+      if (ges_timeline_element_lookup_child (GES_TIMELINE_ELEMENT (object),
+              l->data, &child, &pspec)) {
+        GValue value = G_VALUE_INIT;
+        g_value_init (&value, pspec->value_type);
+        g_object_get_property (child, pspec->name, &value);
+        gst_object_unref (child);
+        g_param_spec_unref (pspec);
+
+        if (G_VALUE_HOLDS_FLOAT (&value)) {
+          operational_rate *= g_value_get_float (&value);
+        } else if (G_VALUE_HOLDS_DOUBLE (&value)) {
+          operational_rate *= g_value_get_double (&value);
+        } else {
+          GST_WARNING_OBJECT (object,
+              "Rate property %s in child %" GST_PTR_FORMAT
+              " is of unsupported type %s", pspec->name, child,
+              G_VALUE_TYPE_NAME (pspec->value_type));
+        }
+
+        GST_DEBUG_OBJECT (object,
+            "Added effect set rate changing property %s to value %f",
+            l->data, operational_rate);
+        g_value_unset (&value);
+      }
+    }
+    g_object_set (object->priv->nleobject,
+        "operational_rate", operational_rate, NULL);
+    g_type_class_unref (effect_class);
   }
 
 done:

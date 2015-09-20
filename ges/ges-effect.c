@@ -141,6 +141,10 @@ ges_effect_class_init (GESEffectClass * klass)
 
   obj_bg_class->create_element = ges_effect_create_element;
 
+  klass->rate_properties = NULL;
+  ges_effect_class_register_rate_property_by_element (klass, "pitch", "tempo");
+  ges_effect_class_register_rate_property_by_element (klass, "pitch", "rate");
+
   /**
    * GESEffect:bin-description:
    *
@@ -253,4 +257,41 @@ ges_effect_new (const gchar * bin_description)
   gst_object_unref (asset);
 
   return effect;
+}
+
+static int
+property_name_compare (gconstpointer s1, gconstpointer s2)
+{
+  return g_strcmp0 ((const gchar *) s1, (const gchar *) s2);
+}
+
+void
+ges_effect_class_register_rate_property (GESEffectClass * klass,
+    const gchar * property_name)
+{
+  if (g_list_find_custom (klass->rate_properties, property_name,
+          property_name_compare) == NULL) {
+    klass->rate_properties =
+        g_list_append (klass->rate_properties, g_strdup (property_name));
+  }
+}
+
+void
+ges_effect_class_register_rate_property_by_element (GESEffectClass * klass,
+    const gchar * element, const gchar * property_name)
+{
+  GstElementFactory *element_factory = gst_element_factory_find (element);
+  if (element_factory) {
+    element_factory = GST_ELEMENT_FACTORY (gst_plugin_feature_load
+        (GST_PLUGIN_FEATURE (element_factory)));
+    gchar *full_property_name = g_strdup_printf ("%s::%s",
+        g_type_name (gst_element_factory_get_element_type (element_factory)),
+        property_name);
+    ges_effect_class_register_rate_property (klass, full_property_name);
+    g_free (full_property_name);
+  } else {
+    GST_WARNING
+        ("Did not add rate property '%s' for element '%s': the element factory could not be found",
+        property_name, element);
+  }
 }

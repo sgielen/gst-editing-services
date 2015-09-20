@@ -77,6 +77,7 @@ enum
   PROP_ACTIVE,
   PROP_CAPS,
   PROP_EXPANDABLE,
+  PROP_OPERATIONAL_RATE,
   PROP_LAST
 };
 
@@ -246,6 +247,19 @@ nle_object_class_init (NleObjectClass * klass)
       properties[PROP_EXPANDABLE]);
 
   /**
+   * NleObject:operational_rate
+   *
+   * Indicates the rate at which sources of this NleObject should play to
+   * produce enough data for the sinks of this NleObject.
+   */
+  properties[PROP_OPERATIONAL_RATE] =
+      g_param_spec_float ("operational_rate", "Operational rate",
+      "The rate at which sources of this NleObject should play", 0.01f, 10.f,
+      1.0f, G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class, PROP_OPERATIONAL_RATE,
+      properties[PROP_OPERATIONAL_RATE]);
+
+  /**
    * NleObject::commit
    * @object: a #NleObject
    * @recurse: Whether to commit recursiverly into (NleComposition) children of
@@ -281,6 +295,7 @@ nle_object_init (NleObject * object, NleObjectClass * klass)
   object->segment_rate = 1.0;
   object->segment_start = -1;
   object->segment_stop = -1;
+  object->operational_rate = 1.0;
 
   object->srcpad = nle_object_ghost_pad_no_target (object,
       "src", GST_PAD_SRC,
@@ -543,6 +558,9 @@ nle_object_set_property (GObject * object, guint prop_id,
       else
         GST_OBJECT_FLAG_UNSET (nleobject, NLE_OBJECT_EXPANDABLE);
       break;
+    case PROP_OPERATIONAL_RATE:
+      nleobject->operational_rate = g_value_get_float (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -580,6 +598,11 @@ nle_object_get_property (GObject * object, guint prop_id,
       break;
     case PROP_EXPANDABLE:
       g_value_set_boolean (value, NLE_OBJECT_IS_EXPANDABLE (object));
+      break;
+    case PROP_OPERATIONAL_RATE:
+      GST_INFO_OBJECT (nleobject, "Setting operational rate to %lf",
+          nleobject->operational_rate);
+      g_value_set_float (value, nleobject->operational_rate);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
