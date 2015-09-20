@@ -126,6 +126,10 @@ struct _NleObject
   gint64 segment_start;
   gint64 segment_stop;
 
+  /* effective playing rate because of playback rate changing elements in the pipeline */
+  gdouble effective_rate_factor;
+  gdouble effective_rate;
+
   gboolean in_composition;
 };
 

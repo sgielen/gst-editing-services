@@ -77,6 +77,7 @@ enum
   PROP_ACTIVE,
   PROP_CAPS,
   PROP_EXPANDABLE,
+  PROP_EFFECTIVE_RATE_FACTOR,
   PROP_LAST
 };
 
@@ -246,6 +247,20 @@ nle_object_class_init (NleObjectClass * klass)
       properties[PROP_EXPANDABLE]);
 
   /**
+   * NleObject:effective-rate-factor
+   *
+   * Indicates the change this NleObject makes to the effective rate. I.e. if
+   * object pulls data at twice the speed it sends it (e.g. `pitch tempo=2.0`),
+   * this value is set to 2.0.
+   */
+  properties[PROP_EFFECTIVE_RATE_FACTOR] =
+      g_param_spec_float ("effective-rate-factor", "Effective rate factor",
+      "The change to the effective rate caused by this object", 0.01f, 10.f,
+      1.0f, G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class, PROP_EFFECTIVE_RATE_FACTOR,
+      properties[PROP_EFFECTIVE_RATE_FACTOR]);
+
+  /**
    * NleObject::commit
    * @object: a #NleObject
    * @recurse: Whether to commit recursiverly into (NleComposition) children of
@@ -281,6 +296,8 @@ nle_object_init (NleObject * object, NleObjectClass * klass)
   object->segment_rate = 1.0;
   object->segment_start = -1;
   object->segment_stop = -1;
+  object->effective_rate_factor = 1.0;
+  object->effective_rate = 1.0;
 
   object->srcpad = nle_object_ghost_pad_no_target (object,
       "src", GST_PAD_SRC,
@@ -350,9 +367,9 @@ nle_object_to_media_time (NleObject * object, GstClockTime otime,
 
   if (G_UNLIKELY (object->inpoint == GST_CLOCK_TIME_NONE)) {
     /* no time shifting, for live sources ? */
-    *mtime = otime - object->start;
+    *mtime = (otime - object->start) * object->effective_rate;
   } else {
-    *mtime = otime - object->start + object->inpoint;
+    *mtime = (otime - object->start) * object->effective_rate + object->inpoint;
   }
 
   GST_DEBUG_OBJECT (object, "Returning MediaTime : %" GST_TIME_FORMAT,
@@ -543,6 +560,9 @@ nle_object_set_property (GObject * object, guint prop_id,
       else
         GST_OBJECT_FLAG_UNSET (nleobject, NLE_OBJECT_EXPANDABLE);
       break;
+    case PROP_EFFECTIVE_RATE_FACTOR:
+      nleobject->effective_rate_factor = g_value_get_float (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -580,6 +600,9 @@ nle_object_get_property (GObject * object, guint prop_id,
       break;
     case PROP_EXPANDABLE:
       g_value_set_boolean (value, NLE_OBJECT_IS_EXPANDABLE (object));
+      break;
+    case PROP_EFFECTIVE_RATE_FACTOR:
+      g_value_set_float (value, nleobject->effective_rate_factor);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);

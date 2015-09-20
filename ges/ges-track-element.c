@@ -34,6 +34,7 @@
 #include "ges-track-element.h"
 #include "ges-clip.h"
 #include "ges-meta-container.h"
+#include "ges-effect.h"
 
 G_DEFINE_ABSTRACT_TYPE (GESTrackElement, ges_track_element,
     GES_TYPE_TIMELINE_ELEMENT);
@@ -657,6 +658,8 @@ ensure_nle_object (GESTrackElement * object)
 {
   GESTrackElementClass *class;
   GstElement *nleobject;
+  float effective_rate;
+  GESEffectClass *effect_class;
   gboolean res = TRUE;
 
   if (object->priv->nleobject && object->priv->valid)
@@ -712,6 +715,40 @@ ensure_nle_object (GESTrackElement * object)
       g_object_set (object->priv->nleobject,
           "caps", ges_track_get_caps (object->priv->track), NULL);
 
+    effective_rate = 1.0f;
+    effect_class = GES_EFFECT_CLASS (g_type_class_ref (GES_TYPE_EFFECT));
+
+    for (GList * l = effect_class->rate_properties; l != NULL; l = l->next) {
+      GObject *child;
+      GParamSpec *pspec;
+      if (ges_timeline_element_lookup_child (GES_TIMELINE_ELEMENT (object),
+              l->data, &child, &pspec)) {
+        if (G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_FLOAT) {
+          float rate_change;
+          g_object_get (child, pspec->name, &rate_change, NULL);
+          effective_rate *= rate_change;
+        } else if (G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_DOUBLE) {
+          double rate_change;
+          g_object_get (child, pspec->name, &rate_change, NULL);
+          effective_rate *= rate_change;
+        } else {
+          GST_WARNING_OBJECT (object,
+              "Rate property %s in child %" GST_PTR_FORMAT
+              " is of unsupported type %s", pspec->name, child,
+              G_VALUE_TYPE_NAME (pspec->value_type));
+        }
+
+        gst_object_unref (child);
+        g_param_spec_unref (pspec);
+
+        GST_DEBUG_OBJECT (object,
+            "Added effect set rate changing property %s to value %f",
+            (const char *) l->data, effective_rate);
+      }
+    }
+    g_object_set (object->priv->nleobject,
+        "effective-rate-factor", effective_rate, NULL);
+    g_type_class_unref (effect_class);
   }
 
 done:
