@@ -1223,7 +1223,8 @@ ges_clip_split (GESClip * clip, guint64 position)
 {
   GList *tmp;
   GESClip *new_object;
-  GstClockTime start, inpoint, duration;
+  GstClockTime start, inpoint, duration, old_duration, new_duration;
+  gfloat media_duration_factor;
 
   g_return_val_if_fail (GES_IS_CLIP (clip), NULL);
   g_return_val_if_fail (clip->priv->layer, NULL);
@@ -1248,11 +1249,15 @@ ges_clip_split (GESClip * clip, guint64 position)
 
   GST_DEBUG_OBJECT (new_object, "New 'splitted' clip");
   /* Set new timing properties on the Clip */
+  media_duration_factor =
+      ges_timeline_element_get_media_duration_factor (GES_TIMELINE_ELEMENT
+      (clip));
+  new_duration = duration + start - position;
+  old_duration = position - start;
   _set_start0 (GES_TIMELINE_ELEMENT (new_object), position);
   _set_inpoint0 (GES_TIMELINE_ELEMENT (new_object),
-      _INPOINT (clip) + duration - (duration + start - position));
-  _set_duration0 (GES_TIMELINE_ELEMENT (new_object),
-      duration + start - position);
+      inpoint + old_duration * media_duration_factor);
+  _set_duration0 (GES_TIMELINE_ELEMENT (new_object), new_duration);
 
   /* We do not want the timeline to create again TrackElement-s */
   ges_clip_set_moving_from_layer (new_object, TRUE);
@@ -1274,9 +1279,8 @@ ges_clip_split (GESClip * clip, guint64 position)
     /* Set 'new' track element timing propeties */
     _set_start0 (GES_TIMELINE_ELEMENT (new_trackelement), position);
     _set_inpoint0 (GES_TIMELINE_ELEMENT (new_trackelement),
-        inpoint + duration - (duration + start - position));
-    _set_duration0 (GES_TIMELINE_ELEMENT (new_trackelement),
-        duration + start - position);
+        inpoint + old_duration * media_duration_factor);
+    _set_duration0 (GES_TIMELINE_ELEMENT (new_trackelement), new_duration);
 
     ges_container_add (GES_CONTAINER (new_object),
         GES_TIMELINE_ELEMENT (new_trackelement));
@@ -1287,7 +1291,7 @@ ges_clip_split (GESClip * clip, guint64 position)
         position - start + inpoint);
   }
 
-  _set_duration0 (GES_TIMELINE_ELEMENT (clip), position - _START (clip));
+  _set_duration0 (GES_TIMELINE_ELEMENT (clip), old_duration);
 
   return new_object;
 }

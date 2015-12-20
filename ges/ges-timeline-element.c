@@ -31,6 +31,7 @@
 #include "ges-extractable.h"
 #include "ges-meta-container.h"
 #include "ges-internal.h"
+#include "ges-effect.h"
 
 #include <string.h>
 #include <gobject/gvaluecollector.h>
@@ -1724,4 +1725,47 @@ ges_timeline_element_paste (GESTimelineElement * self,
   g_clear_object (&self->priv->copied_from);
 
   return res;
+}
+
+/* Internal */
+gfloat
+ges_timeline_element_get_media_duration_factor (GESTimelineElement * self)
+{
+  gfloat media_duration_factor;
+  GESEffectClass *class;
+
+  media_duration_factor = 1.0f;
+  class = GES_EFFECT_CLASS (g_type_class_ref (GES_TYPE_EFFECT));
+
+  for (GList * props = class->rate_properties;
+      props != NULL; props = props->next) {
+    GObject *child;
+    GParamSpec *pspec;
+    if (ges_timeline_element_lookup_child (self, props->data, &child, &pspec)) {
+      if (G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_FLOAT) {
+        gfloat rate_change;
+        g_object_get (child, pspec->name, &rate_change, NULL);
+        media_duration_factor *= rate_change;
+      } else if (G_PARAM_SPEC_VALUE_TYPE (pspec) == G_TYPE_DOUBLE) {
+        gdouble rate_change;
+        g_object_get (child, pspec->name, &rate_change, NULL);
+        media_duration_factor *= rate_change;
+      } else {
+        GST_WARNING_OBJECT (self,
+            "Rate property %s in child %" GST_PTR_FORMAT
+            " is of unsupported type %s", pspec->name, child,
+            G_VALUE_TYPE_NAME (pspec->value_type));
+      }
+
+      gst_object_unref (child);
+      g_param_spec_unref (pspec);
+
+      GST_DEBUG_OBJECT (self,
+          "Added rate changing property %s, set to value %f",
+          (const char *) props->data, media_duration_factor);
+    }
+  }
+
+  g_type_class_unref (class);
+  return media_duration_factor;
 }

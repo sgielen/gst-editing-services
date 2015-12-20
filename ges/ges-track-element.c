@@ -657,6 +657,7 @@ ensure_nle_object (GESTrackElement * object)
 {
   GESTrackElementClass *class;
   GstElement *nleobject;
+  gfloat media_duration_factor;
   gboolean res = TRUE;
 
   if (object->priv->nleobject && object->priv->valid)
@@ -712,6 +713,11 @@ ensure_nle_object (GESTrackElement * object)
       g_object_set (object->priv->nleobject,
           "caps", ges_track_get_caps (object->priv->track), NULL);
 
+    media_duration_factor =
+        ges_timeline_element_get_media_duration_factor (GES_TIMELINE_ELEMENT
+        (object));
+    g_object_set (object->priv->nleobject,
+        "media-duration-factor", media_duration_factor, NULL);
   }
 
 done:
